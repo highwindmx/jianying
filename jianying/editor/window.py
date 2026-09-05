@@ -16,12 +16,16 @@ from PyQt6.QtWidgets import (
     QApplication,
     QColorDialog,
     QComboBox,
+    QDialog,
     QFileDialog,
     QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
     QMessageBox,
+    QPlainTextEdit,
+    QProgressDialog,
+    QPushButton,
     QScrollArea,
     QSlider,
     QSpinBox,
@@ -714,17 +718,68 @@ class EditorWindow(QWidget):
         self._ocr_worker = MineruWorker(tmp)
         self._ocr_worker.finished_text.connect(self._ocr_done)
         self._ocr_worker.failed.connect(self._ocr_fail)
+        self._ocr_worker.finished.connect(self._ocr_cleanup)
         self._ocr_worker.start()
+        # 进行中提示：忙碌框，可取消
+        self._ocr_progress = QProgressDialog(
+            "正在识别（MinerU 处理约 10~60 秒）…", "取消", 0, 0, self)
+        self._ocr_progress.setWindowTitle("OCR 识别中")
+        self._ocr_progress.setWindowModality(Qt.WindowModality.WindowModal)
+        self._ocr_progress.setMinimumDuration(0)
+        self._ocr_progress.canceled.connect(self._ocr_cancel)
+        self._ocr_progress.show()
+
+    def _ocr_cancel(self) -> None:
+        """用户取消：请求中断轮询，线程结束后由 _ocr_cleanup 收尾。"""
+        w = getattr(self, "_ocr_worker", None)
+        if w is not None:
+            w.requestInterruption()
+
+    def _ocr_cleanup(self) -> None:
+        """进度框随线程结束（成功/失败/取消）统一关闭。"""
+        prog = getattr(self, "_ocr_progress", None)
+        if prog is not None:
+            prog.reset()
+            prog.close()
+            self._ocr_progress = None
+        self._ocr_worker = None
+
+    def closeEvent(self, e) -> None:      # noqa: N802 (Qt 命名)
+        """窗口关闭时若有 OCR 线程在跑，先中断并等待，避免 QThread 析构崩溃。"""
+        w = getattr(self, "_ocr_worker", None)
+        if w is not None and w.isRunning():
+            w.requestInterruption()
+            w.wait(2000)
+        super().closeEvent(e)
 
     def _ocr_done(self, text: str) -> None:
         from jianying.utils import copy_text_to_clipboard
 
-        dlg = QMessageBox(self)
+        copy_text_to_clipboard(text)   # 出结果即复制，省一步
+
+        dlg = QDialog(self)
         dlg.setWindowTitle("OCR 结果")
-        dlg.setText(text[:2000] + ("…" if len(text) > 2000 else ""))
-        dlg.setStandardButtons(QMessageBox.StandardButton.Ok)
+        dlg.resize(560, 420)
+        lay = QVBoxLayout(dlg)
+        info = QLabel(f"共 {len(text)} 字符，已自动复制到剪贴板；也可框选部分复制：")
+        lay.addWidget(info)
+        view = QPlainTextEdit(text)
+        view.setReadOnly(True)
+        view.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+            | Qt.TextInteractionFlag.TextSelectableByKeyboard)
+        lay.addWidget(view, 1)
+        btns = QHBoxLayout()
+        btn_copy = QPushButton("复制全文")
+        btn_copy.clicked.connect(
+            lambda: (copy_text_to_clipboard(text), btn_copy.setText("✓ 已复制")))
+        btns.addWidget(btn_copy)
+        btns.addStretch(1)
+        btn_close = QPushButton("关闭")
+        btn_close.clicked.connect(dlg.accept)
+        btns.addWidget(btn_close)
+        lay.addLayout(btns)
         dlg.exec()
-        copy_text_to_clipboard(text)
 
     def _ocr_fail(self, msg: str) -> None:
         QMessageBox.warning(self, "OCR 失败", msg)

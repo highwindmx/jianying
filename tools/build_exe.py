@@ -3,6 +3,7 @@
 用法：
     uv run python tools/build_exe.py            # onedir：dist/jianying/jianying.exe（启动快）
     uv run python tools/build_exe.py --onefile  # 单文件：dist/jianying.exe（分发方便，启动略慢）
+    uv run python tools/build_exe.py --distpath dist3   # 自定义输出目录（dist 被占用时用）
 
 说明：
 - --windowed：GUI 应用，不弹黑框控制台
@@ -25,12 +26,20 @@ ENTRY = HERE / "jianying" / "__main__.py"
 onefile = "--onefile" in sys.argv
 mode = "--onefile" if onefile else "--onedir"
 
+# --distpath <dir>：输出目录（默认 dist）。dist 被资源管理器/exe 占用导致
+# PyInstaller 无法清理重建时，换一个全新目录即可。
+distpath = "dist"
+if "--distpath" in sys.argv:
+    distpath = sys.argv[sys.argv.index("--distpath") + 1]
+
 opts = [
     str(ENTRY),
     "--name", "jianying",
     "--windowed",                 # GUI 应用，不弹控制台
     "--noconfirm",
     "--clean",
+    "--distpath", distpath,
+    "--workpath", f"build_{Path(distpath).name}",
     "--hidden-import", "jianying.capture.recorder",
     "--hidden-import", "jianying.capture.scroll",
     "--hidden-import", "jianying.ocr",
@@ -50,6 +59,6 @@ if ASSETS.exists():
 opts.append(mode)
 
 if __name__ == "__main__":
-    print(f"[build] mode={mode} entry={ENTRY}")
+    print(f"[build] mode={mode} entry={ENTRY} distpath={distpath}")
     pyi.run(opts)
-    print("\n[build] done. 产物在 dist/")
+    print(f"\n[build] done. 产物在 {distpath}/")

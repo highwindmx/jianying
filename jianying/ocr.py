@@ -31,6 +31,8 @@ class MineruWorker(QThread):
             self.failed.emit(str(e))
 
     def _ocr(self) -> str:
+        if self.isInterruptionRequested():
+            raise RuntimeError("已取消")
         token = config.MINERU_API_TOKEN
         base = config.MINERU_API_BASE.rstrip("/")
         headers = {"Authorization": f"Bearer {token}"}
@@ -53,13 +55,18 @@ class MineruWorker(QThread):
         upload_url = data["data"]["file_urls"][0]
 
         # 2) PUT 上传
+        if self.isInterruptionRequested():
+            raise RuntimeError("已取消")
         put = requests.put(upload_url, data=self._path.read_bytes(), timeout=120)
         put.raise_for_status()
 
-        # 3) 轮询结果（最多 120s）
+        # 3) 轮询结果（最多 120s；0.5s 粒度检查取消请求）
         result_url = None
         for _ in range(40):
-            time.sleep(3)
+            for _ in range(6):            # 3s = 6×0.5s
+                if self.isInterruptionRequested():
+                    raise RuntimeError("已取消")
+                time.sleep(0.5)
             r = requests.get(
                 f"{base}/extract-results/batch/{batch_id}",
                 headers=headers, timeout=30,
