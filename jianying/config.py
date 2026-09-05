@@ -24,7 +24,40 @@ def _env_file() -> Path:
     return ROOT_DIR / ".env"
 
 
-load_dotenv(_env_file())
+# .env 实际路径（托盘"配置"菜单直接打开/创建它）
+ENV_FILE = _env_file()
+load_dotenv(ENV_FILE)
+
+# .env 不存在时的默认内容（与 .env.example 保持一致）
+DEFAULT_ENV_TEMPLATE = """\
+# 剪影配置：按需修改，保存后重启应用生效
+
+# 热键（pynput 语法）
+HOTKEY_CAPTURE=<ctrl>+<shift>+a
+HOTKEY_FULLSCREEN=<ctrl>+<shift>+f
+HOTKEY_PIN_LAST=<ctrl>+<shift>+s
+HOTKEY_SCROLL=<ctrl>+<shift>+d
+
+# 保存
+# SAVE_DIR=C:\\Users\\you\\Pictures\\jianying
+SAVE_FORMAT=png
+EXPORT_QUALITY=92
+
+# 行为
+MOSAIC_BLOCK=14
+GUESS_ENABLED=1
+
+# 滚动截图
+SCROLL_INTERVAL_MS=900
+SCROLL_MAX_FRAMES=12
+SCROLL_WHEEL_NOTCHES=5
+
+# 屏幕录像
+RECORD_FPS=20
+
+# MinerU OCR（https://mineru.net 申请）
+MINERU_API_TOKEN=
+"""
 
 
 def _assets_dir() -> Path:

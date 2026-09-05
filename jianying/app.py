@@ -41,7 +41,29 @@ class JianyingApp(QObject):
         self._tray.fullscreen_clicked.connect(self.start_fullscreen)
         self._tray.pin_last_clicked.connect(self.pin_last)
         self._tray.scroll_clicked.connect(self.start_scroll)
+        self._tray.settings_clicked.connect(self.open_env_config)
         self._tray.quit_clicked.connect(self.quit)
+
+    @pyqtSlot()
+    def open_env_config(self) -> None:
+        """托盘「配置」：打开（不存在则创建）.env 文件，系统默认编辑器。"""
+        import os
+
+        from jianying import config
+
+        env = config.ENV_FILE
+        if not env.exists():
+            env.parent.mkdir(parents=True, exist_ok=True)
+            env.write_text(config.DEFAULT_ENV_TEMPLATE, encoding="utf-8")
+        try:
+            os.startfile(env)          # Windows 记事本/默认编辑器
+        except OSError as e:
+            QMessageBox.warning(None, "剪影 · 配置",
+                                f"无法打开配置文件：{e}\n路径：{env}")
+            return
+        QMessageBox.information(
+            None, "剪影 · 配置",
+            f"配置文件：{env}\n修改并保存后，重启剪影生效。")
 
     # ---------- 截图入口 ----------
     def _begin_capture(self, mode: str) -> None:

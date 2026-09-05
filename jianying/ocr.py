@@ -4,6 +4,7 @@ API 文档: https://mineru.net/apiManage  (v4 batch 接口)
 """
 from __future__ import annotations
 
+import html
 import io
 import time
 import zipfile
@@ -93,4 +94,6 @@ class MineruWorker(QThread):
             mds = [n for n in zf.namelist() if n.endswith(".md")]
             if not mds:
                 raise RuntimeError("结果包内未找到 Markdown")
-            return zf.read(mds[0]).decode("utf-8", errors="replace")
+            raw = zf.read(mds[0]).decode("utf-8", errors="replace")
+            # MinerU 输出含 HTML 实体（&lt; &amp; &#x… 等），解码为可读字符
+            return html.unescape(raw)

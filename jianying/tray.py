@@ -20,6 +20,7 @@ class TrayIcon(QObject):
     fullscreen_clicked = pyqtSignal()
     pin_last_clicked = pyqtSignal()
     scroll_clicked = pyqtSignal()
+    settings_clicked = pyqtSignal()
     quit_clicked = pyqtSignal()
 
     def __init__(self, parent=None):
@@ -38,6 +39,8 @@ class TrayIcon(QObject):
                 pystray.MenuItem("📜 滚动截图 (Ctrl+Shift+D)",
                                  lambda *_: self.scroll_clicked.emit()),
                 pystray.Menu.SEPARATOR,
+                pystray.MenuItem("⚙ 配置 (.env)",
+                                 lambda *_: self.settings_clicked.emit()),
                 pystray.MenuItem("退出", lambda *_: self.quit_clicked.emit()),
             ),
         )
