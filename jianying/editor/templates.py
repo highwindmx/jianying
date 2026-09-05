@@ -1,4 +1,7 @@
-"""背景模板库：内置 31 个背景 + assets/templates/*.json 用户自定义。"""
+"""背景模板库：内置 31 个背景 + assets/templates/*.json 用户自定义。
+
+展示顺序：无背景、透明 → 其余按主色色相（HSV hue）排序，无彩色按明度殿后。
+"""
 from __future__ import annotations
 
 import json
@@ -21,7 +24,7 @@ def _tpl(name: str, type_: str, colors: list[str] | None = None,
     return t
 
 
-# 渐变背景 ×22
+# 渐变背景 ×22（蜜桃→绯红、深海→霞紫、石墨→橄榄 为配色去重替换）
 _GRADIENTS: list[tuple[str, str, str, int]] = [
     ("海洋", "#2193b0", "#6dd5ed", 135),
     ("落日", "#f12711", "#f5af19", 135),
@@ -35,15 +38,15 @@ _GRADIENTS: list[tuple[str, str, str, int]] = [
     ("蓝粉", "#4facfe", "#f093fb", 135),
     ("靛夜", "#2b5876", "#4e4376", 135),
     ("珊瑚", "#ff5f6d", "#ffc371", 135),
+    ("绯红", "#D31027", "#EA384D", 135),   # 正红（替换与"桃气"过近的"蜜桃"）
     ("薄荷", "#43e97b", "#38f9d7", 120),
-    ("深海", "#4b6cb7", "#182848", 135),
+    ("霞紫", "#41295A", "#2F0743", 135),   # 深紫（替换与"靛夜"过近的"深海"）
     ("星紫", "#8e2de2", "#4a00e0", 135),
     ("青空", "#1c92d2", "#f2fcfe", 120),
-    ("蜜桃", "#ee9ca7", "#ffdde1", 135),
     ("松石", "#136a8a", "#267871", 135),
     ("麦浪", "#eacda3", "#d6ae7b", 135),
     ("火烈鸟", "#f093fb", "#f5576c", 135),
-    ("石墨", "#232526", "#414345", 135),
+    ("橄榄", "#5C7A3F", "#B5CEA8", 135),   # 黄绿（替换深色堆叠的"石墨"）
     ("金橙", "#f7971e", "#ffd200", 120),
 ]
 
@@ -65,16 +68,41 @@ _TRANSPARENT: list[tuple[str, int, int]] = [
 ]
 
 
+def _main_rgb(tpl: dict) -> tuple[int, int, int] | None:
+    """背景主色：纯色取本身，渐变取两端均值。"""
+    colors = tpl.get("colors") or []
+    if not colors:
+        return None
+    rgbs = [tuple(int(c.strip("#")[i:i + 2], 16) for i in (0, 2, 4))
+            for c in colors]
+    return tuple(sum(c[i] for c in rgbs) // len(rgbs) for i in range(3))
+
+
+def _sort_key(tpl: dict) -> tuple:
+    """排序键：有彩按色相；无彩（低饱和）按明度降序殿后。"""
+    import colorsys
+
+    main = _main_rgb(tpl)
+    if main is None:
+        return (2, 0.0)
+    h, s, v = colorsys.rgb_to_hsv(*[c / 255 for c in main])
+    if s < 0.08:
+        return (2, -v)          # 无彩：白 → 黑 排最后
+    return (0, h)
+
+
 def _backgrounds() -> list[dict]:
-    out: list[dict] = []
+    tps: list[dict] = []
     for name, pad, radius in _TRANSPARENT:
-        out.append(_tpl(name, "transparent", padding=pad, radius=radius, blur=0))
+        tps.append(_tpl(name, "transparent", padding=pad, radius=radius, blur=0))
     for name, color in _SOLIDS:
-        out.append(_tpl(name, "solid", [color],
+        tps.append(_tpl(name, "solid", [color],
                         blur=36, opacity=90 if name in ("纯白", "奶油") else 110))
     for name, c1, c2, ang in _GRADIENTS:
-        out.append(_tpl(name, "gradient", [c1, c2], angle=ang))
-    return out
+        tps.append(_tpl(name, "gradient", [c1, c2], angle=ang))
+    # 透明之后的所有背景按主配色排序（色环顺序，无彩殿后）
+    tps[1:] = sorted(tps[1:], key=_sort_key)
+    return tps
 
 
 BUILTIN: list[dict] = [

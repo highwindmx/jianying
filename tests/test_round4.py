@@ -34,10 +34,11 @@ assert hasattr(ed, "_sld_pad") and not hasattr(ed, "_spin_pad")
 assert len(ed._tpl_btns) == 32
 print("2) sliders + 32 swatches OK")
 
-# 3) 色块 idx: 0=无背景 1=透明圆角 2=纯白
+# 3) 色块 idx 含"无背景"（idx0），_tpl_list 不含（差 1）：idx2 = 珊瑚（色环起点）
 ed._on_template_changed(2)
-assert ed._tpl_list[1]["name"] == "纯白"
-assert ed._sld_pad.value() == 48 and ed._sld_shadow.value() == 36
+assert ed._tpl_list[0]["name"] == "透明圆角"
+assert ed._tpl_list[1]["name"] == "珊瑚"     # 主色相排序后首个有彩背景
+assert ed._sld_pad.value() == 48 and ed._sld_shadow.value() == 40   # 渐变默认 pad48/blur40
 assert ed._styled is not None
 print("3) template->slider OK")
 

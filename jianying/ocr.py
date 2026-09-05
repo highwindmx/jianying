@@ -87,13 +87,23 @@ class MineruWorker(QThread):
         if not result_url:
             raise RuntimeError("OCR 超时（>120s），请稍后重试")
 
-        # 4) 下载 zip，提取 .md
+        # 4) 下载 zip，提取 .md（可能多个：取解码后最长的一个）
         zr = requests.get(result_url, timeout=120)
         zr.raise_for_status()
         with zipfile.ZipFile(io.BytesIO(zr.content)) as zf:
-            mds = [n for n in zf.namelist() if n.endswith(".md")]
+            names = zf.namelist()
+            mds = [n for n in names if n.lower().endswith(".md")]
             if not mds:
-                raise RuntimeError("结果包内未找到 Markdown")
-            raw = zf.read(mds[0]).decode("utf-8", errors="replace")
-            # MinerU 输出含 HTML 实体（&lt; &amp; &#x… 等），解码为可读字符
-            return html.unescape(raw)
+                raise RuntimeError(
+                    "结果包内未找到 Markdown（包内文件："
+                    + ", ".join(names[:10]) + "）")
+            best, best_len = "", -1
+            for n in mds:
+                txt = html.unescape(zf.read(n).decode("utf-8", errors="replace"))
+                if len(txt.strip()) > best_len:
+                    best, best_len = txt, len(txt.strip())
+            if not best.strip():
+                raise RuntimeError(
+                    "OCR 完成但结果为空（包内 md：" + ", ".join(mds)
+                    + "）。可能图片无可识别文字，请重试或换清晰截图")
+            return best
