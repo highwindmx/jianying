@@ -9,7 +9,22 @@ from dotenv import load_dotenv
 
 # 项目根 = 包上一级（源码模式）；打包后指向 _internal/jianying 的祖父目录
 ROOT_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(ROOT_DIR / ".env")
+
+
+def _env_file() -> Path:
+    """.env 查找，兼容源码与打包：
+    - 打包：优先 exe 同级 .env（用户可直接放置/修改），否则 _MEIPASS 内置
+    - 源码：项目根 .env
+    """
+    if getattr(sys, "frozen", False):
+        local = Path(sys.executable).resolve().parent / ".env"
+        if local.exists():
+            return local
+        return Path(getattr(sys, "_MEIPASS", str(local.parent))) / ".env"
+    return ROOT_DIR / ".env"
+
+
+load_dotenv(_env_file())
 
 
 def _assets_dir() -> Path:

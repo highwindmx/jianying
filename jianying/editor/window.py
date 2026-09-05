@@ -697,9 +697,14 @@ class EditorWindow(QWidget):
     # ---------------- OCR ----------------
     def _run_ocr(self) -> None:
         if not config.MINERU_API_TOKEN:
+            import sys as _sys
+            if getattr(_sys, "frozen", False):
+                where = "exe 同级目录的 .env 文件"
+            else:
+                where = "项目根目录 .env"
             QMessageBox.information(
                 self, "未配置 OCR",
-                "请在项目根目录 .env 中设置 MINERU_API_TOKEN（MinerU 平台申请）后重启。")
+                f"请在{where}中设置 MINERU_API_TOKEN（MinerU 平台申请）后重启。")
             return
         import tempfile
         from pathlib import Path
